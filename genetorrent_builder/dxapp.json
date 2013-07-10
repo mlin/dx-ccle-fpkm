@@ -1,0 +1,32 @@
+{
+  "name": "genetorrent_builder",
+  "title": "GeneTorrent Builder",
+  "summary": "Builds GeneTorrent from source",
+  "dxapi": "1.0.0",
+  "version": "0.0.1",
+  "categories": [],
+  "inputSpec": [
+    {
+      "name": "version",
+      "label": "GeneTorrent Version",
+      "class": "string",
+      "optional": true,
+      "default": "3.8.3"
+    }
+  ],
+  "outputSpec": [
+    {
+      "name": "package",
+      "class": "array:file"
+    }
+  ],
+  "runSpec": {
+    "interpreter": "bash",
+    "file": "src/genetorrent_builder.sh"
+  },
+  "access": {
+    "network": [
+      "*"
+    ]
+  }
+}
