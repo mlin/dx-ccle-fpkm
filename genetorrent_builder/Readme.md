@@ -8,7 +8,7 @@ For more information about how to run or modify it, see
 https://wiki.dnanexus.com/.
 <!-- /dx-header -->
 
-This is a helper applet to build a given version the GeneTorrent executable
+This is a helper applet to build a given version of the GeneTorrent executable
 (from the original source package) within the DNAnexus execution environment.
 It produces a binary package which is then placed into the resources of
 ccle_fetcher. Thus, this applet should only be needed when a new version of
