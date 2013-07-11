@@ -1,0 +1,45 @@
+{
+  "name": "ccle_fetcher",
+  "title": "CCLE Fetcher",
+  "summary": "Fetch CCLE BAM files from CGHub",
+  "dxapi": "1.0.0",
+  "version": "0.0.1",
+  "categories": [
+    "RNA-Seq"
+  ],
+  "inputSpec": [
+    {
+      "name": "analysis_id",
+      "label": "Analysis ID (UUID)",
+      "class": "array:string",
+      "optional": false
+    }
+  ],
+  "outputSpec": [
+    {
+      "name": "files",
+      "class": "array:file"
+    }
+  ],
+  "runSpec": {
+    "interpreter": "python2.7",
+    "file": "src/ccle_fetcher.py",
+    "execDepends": [
+      {"name": "libboost-filesystem1.48"},
+      {"name": "libboost-program-options1.48"},
+      {"name": "libboost-regex1.48"},
+      {"name": "libboost-system1.48"},
+      {"name": "libboost-thread1.48"},
+      {"name": "libxerces-c3.1"},
+      {"name": "libxqilla6"},
+      {"name": "python-support"},
+      {"name": "xmltodict==0.5.0", "package_manager": "pip"}
+    ]
+  },
+  "access": {
+    "project": "CONTRIBUTE",
+    "network": [
+      "*"
+    ]
+  }
+}
