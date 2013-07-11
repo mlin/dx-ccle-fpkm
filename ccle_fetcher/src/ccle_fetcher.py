@@ -13,10 +13,6 @@
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
 
-# TODO:
-#  1. memoization
-#  2. parallelization
-
 MAX_SUBJOBS=8
 
 import subprocess
@@ -25,10 +21,11 @@ import os
 import xmltodict
 import hashlib
 import json
+import time
 
 @dxpy.entry_point("main")
 def main(analysis_id):
-    ccle_info_by_analysis_id, ccle_info_by_barcode = get_ccle_index()
+    ccle_info_by_analysis_id, ccle_info_by_barcode = retry(get_ccle_index, 'cgquery')
 
     # validate each requested analysis id against the CCLE index
     for i in xrange(len(analysis_id)):
@@ -36,32 +33,20 @@ def main(analysis_id):
             analysis_id[i] = str(ccle_info_by_barcode[analysis_id[i]]['analysis_id'])
         if analysis_id[i] not in ccle_info_by_analysis_id:
             raise dxpy.AppError("Could not find {} in the CCLE index downloaded from CGHub. Ensure it's the analysis_id or legacy_sample_id/Barcode of a live CCLE dataset.".format(analysis_id[i]))
+    if len(set(analysis_id)) < len(analysis_id):
+        raise dxpy.AppError("The array of requested CCLE analysis IDs contains duplicates.")
 
+    # Fetch all the files
     dxlinks = []
-
-    for id in set(analysis_id):
+    for id in analysis_id:
         info = ccle_info_by_analysis_id[id]
+        dxlinks = ccle_fetch_existing(info)
+        if dxlinks is None:
+            dxlinks = ccle_gtdownload(info)
+        for dxlink in dxlinks:
+            dxlinks.append(dxlink)
 
-        # download files for this analysis to scratch space
-        products = gtdownload(info)
-        print 'Uploading to platform'
-        for (md5,filename) in products:
-            # upload to platform
-            dxfile = dxpy.upload_local_file(filename,keep_open=True)
-
-            # store some metadata
-            dxfile.set_details({'md5': md5, 'cghub_metadata': info})
-            dxfile.set_properties({'md5': md5})
-            dxfile.add_tags(['from_ccle_fetcher'])
-
-            # add file to the list of output files
-            dxfile.close()
-            dxlinks.append(dxpy.dxlink(dxfile))
-
-    output = {}
-    output["files"] = dxlinks
-
-    return output
+    return {'files': dxlinks}
     
     """
     # Split your work into parallel tasks.  As an example, the
@@ -140,19 +125,51 @@ def postprocess(process_outputs):
 
 """
 
-"""
-gtdownload the sample and return an array of local paths
-"""
-_installed_genetorrent=False
-def gtdownload(info):
+# Given the metadata of a CCLE dataset from the index, see if all its
+# constituent files are already present in the project. If so, return a list
+# of DXLinks to them; otherwise return None.
+def ccle_fetch_existing(info):
     analysis_id = str(info['analysis_id'])
-    print '\n\nDownloading {}'.format(analysis_id)
-
-    # extract expected files (by md5) from info
     expected_files = ccle_expected_files(info)
-    print 'Expecting {}'.format(json.dumps(expected_files))
+    print '\n\nLooking for existing data for {} in the project, consisting of files: {}'.format(analysis_id,json.dumps(expected_files))
 
-    # perform the download
+    # for each expected file, see if it's already in the project
+    existing = []
+    for md5 in expected_files:
+        for candidate in dxpy.find_data_objects(project=dxpy.PROJECT_CONTEXT_ID,
+                                                classname='file',
+                                                state='closed',
+                                                name=expected_files[md5],
+                                                name_mode='exact',
+                                                properties={'md5': md5},
+                                                return_handler=True):
+            deets = candidate.get_details()
+            if 'cghub_metadata' in deets and 'md5' in deets and deets['md5'] == md5:
+                existing.push(candidate)
+                break
+
+    # if the project already has all of them, we can quit early
+    if len(existing) == len(expected_files):
+        print 'The files are already in the project!'
+        ids = [dxfile.get_dxid() for dxfile in existing]
+        DXProject(dxpy.PROJECT_CONTEXT_ID).clone(dxpy.WORKSPACE_ID,objects=ids)
+        return [dxpy.dxlink(id) for id in ids]
+    elif len(existing) > 0:
+        print 'Only some of the files are already in the project!'
+    else:
+        print 'No existing data found in the project.'
+
+    return None
+
+# gtdownload and import one CCLE dataset, given its metadata entry from the
+# index. Return a list of DXLinks
+_installed_genetorrent=False
+def ccle_gtdownload(info):
+    analysis_id = str(info['analysis_id'])
+    expected_files = ccle_expected_files(info)
+    print 'Downloading {}, consisting of files: {}'.format(analysis_id,json.dumps(expected_files))
+
+    # perform the download to local scratch space
     global _installed_genetorrent
     if not _installed_genetorrent:
         sh("dpkg -i genetorrent-common.deb")
@@ -163,34 +180,49 @@ def gtdownload(info):
     except:
         raise dxpy.AppError("Failed to download the data from CGHub using GeneTorrent. Ensure the analysis ID(s) are correct and check the job log for more details. Note: CGHub has scheduled maintenance windows on Tuesdays and Thursdays from 1:00-5:00 PM Pacific.")
 
-    # Go through files gtdownload placed in the expected subdirectory
+    # validate the files gtdownload placed in the expected subdirectory
     if not os.path.isdir(analysis_id):
         raise dxpy.AppInternalError("Unexpected: GeneTorrent gtdownload did not create a subdirectory for " + analysis_id)
     print 'Verifying gtdownload products'
-    sh("find {} -type f".format(analysis_id))
-    ans = []
+    products = []
     for dirname, subdirs, filenames in os.walk(analysis_id):
         if len(subdirs) > 0:
             raise dxpy.AppInternalError("Unexpected: GeneTorrent gtdownload created subdirectories " + subdirs)
         for filename in filenames:
             filepath = os.path.join(dirname, filename)
             md5 = md5sum(filepath)
+            print "{} {}".format(md5,filename)
             if md5 not in expected_files:
                 raise dxpy.AppInternalError("GeneTorrent gtdownload produced a file {} with MD5 {} which does not match a file in the CCLE index for {}".format(filename, md5, analysis_id))
             if str(filename) != str(expected_files[md5]):
                 raise dxpy.AppInternalError("GeneTorrent gtdownload produced a file {} but the expected name was {} based on the CCLE index for {}".format(filename, expected_files[md5], analysis_id))
             del expected_files[md5]
-            ans.append((md5, filepath))
+            products.append((md5, filepath))
 
-    # Make sure we got everything
+    # make sure we got everything
     if len(expected_files) > 0:
         raise dxpy.AppInternalError("GeneTorrent gtdownload did not produce all expected files for {}. Missing: {}".format(analysis_id, expected_files))
 
-    return ans
+    # upload to platform
+    print 'Uploading to platform'
+    dxlinks = []
+    for (md5,filename) in products:
+        dxfile = dxpy.upload_local_file(filename,keep_open=True)
+
+        # store some metadata
+        dxfile.set_details({'md5': md5, 'cghub_metadata': info})
+        dxfile.set_properties({'md5': md5})
+        dxfile.add_tags(['from_ccle_fetcher'])
+
+        # add file to the list of output files
+        dxfile.close()
+        dxlinks.append(dxpy.dxlink(dxfile.get_id()))
+
+    return dxlinks
 
 # Use cgquery to fetch the CCLE index from CGHub; return two dicts with the
 # metadata, one indexed by analysis_id and the other by legacy_sample_id
-# (Barcode)
+# (aka Barcode)
 def get_ccle_index():
     # use cgquery to download xml
     try:
@@ -224,18 +256,6 @@ def ccle_expected_files(info):
         expected_files[str(expected_file['checksum']["#text"])] = str(expected_file['filename'])
     return expected_files
 
-# find files in the project previously downloaded by ccle_fetcher (indexed by
-# analysis_id, then by md5)
-def existing_files_from_ccle_fetcher():
-    ans = {}
-    for dxfile in dxpy.find_data_objects(project=dxpy.PROJECT_CONTEXT_ID, classname='file', state='closed', tag='from_ccle_fetcher', return_handler=True):
-        deets = dxfile.get_details()
-        if 'cghub_metadata' in deets and 'md5' in deets:
-            analysis_id = deets['cghub_metadata']['analysis_id']
-            ans[analysis_id][deets['md5']] = dxfile
-    return ans
-
-
 def sh(cmd):
     subprocess.check_call(cmd, shell=True)
 
@@ -247,5 +267,15 @@ def md5sum(filename):
              md5.update(chunk)
     return md5.hexdigest()
 
+def retry(f, caption='operation', retries=5, backoff=1):
+    try:
+        return f()
+    except:
+        if retries <= 0:
+            raise
+        else:
+            time.sleep(backoff)
+            print 'retry: {}'.format(caption)
+            retry(f, caption, retries-1, backoff*2)
 
 dxpy.run()

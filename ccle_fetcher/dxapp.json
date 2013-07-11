@@ -10,7 +10,7 @@
   "inputSpec": [
     {
       "name": "analysis_id",
-      "label": "Analysis ID (UUID)",
+      "label": "Analysis ID",
       "class": "array:string",
       "optional": false
     }
