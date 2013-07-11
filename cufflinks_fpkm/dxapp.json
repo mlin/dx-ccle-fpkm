@@ -1,0 +1,48 @@
+{
+  "name": "cufflinks_fpkm",
+  "title": "RNA-Seq transcript quantification using Cufflinks",
+  "summary": "RNA-Seq expression quantification (FPKM) using Cufflinks",
+  "dxapi": "1.0.0",
+  "version": "0.0.1",
+  "resources": [],
+  "inputSpec": [
+    {
+      "label": "BAM file",
+      "optional": false,
+      "name": "bam",
+      "class": "file",
+      "patterns": ["*.bam"]
+    },
+    {
+      "label": "Genes",
+      "optional": false,
+      "name": "genes",
+      "class": "gtable",
+      "type": "Genes"
+    },
+    {
+      "label": "Cufflinks parameters",
+      "optional": true,
+      "name": "cufflinks_options",
+      "class": "string",
+      "help": "Command-line parameters to Cufflinks (-p, -G, and -o are already provided)"
+    },
+    {
+      "label": "Output name",
+      "optional": true,
+      "name": "name",
+      "class": "string",
+      "help": "Prefixed to output filenames (e.g. foo.genes.fpkm_tracking). Defaults to match BAM filename. Set to empty string to disable."
+    }
+  ],
+  "outputSpec": [
+    {
+      "name": "cufflinks_outputs",
+      "class": "array:file"
+    }
+  ],
+  "runSpec": {
+    "interpreter": "python2.7",
+    "file": "src/cufflinks_fpkm.py"
+  }
+}
