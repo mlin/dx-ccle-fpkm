@@ -154,7 +154,7 @@ def ccle_gtdownload(info):
 
         # store some metadata
         dxfile.set_details({'md5': md5, 'cghub_metadata': info})
-        dxfile.set_properties({'md5': md5})
+        dxfile.set_properties({'md5': md5, 'analysis_id': analysis_id, 'legacy_sample_id': str(info['legacy_sample_id'])})
         dxfile.add_tags(['from_ccle_fetcher'])
 
         # add file to the list of output files
