@@ -30,8 +30,9 @@ below.
 
 ## Inputs
 
-* **Analysis ID** ``analysis_id``: ``array:string`` The analysis_id (UUID) or legacy_sample_id (aka Barcode) of the desired CCLE datasets
+* **Analysis ID or Barcode** ``id_or_barcode``: ``string`` The analysis_id (UUID) or legacy_sample_id (aka Barcode) of the desired CCLE dataset
 
 ## Outputs
 
-* **files** ``files``: ``array:file`` All files in the specified datasets
+* **bam** ``bam``: ``file`` BAM file
+* **bai** ``bai``: ``file`` BAI file
