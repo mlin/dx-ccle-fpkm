@@ -53,7 +53,7 @@ def main(bam, genes, cufflinks_options="", name=None):
         for filename in filenames:
             # rename to include the desired name
             if len(name)>0:
-                newpath = os.path.join(dirname, newname)
+                newpath = os.path.join(dirname, "{}.{}".format(name, filename))
                 sh("mv {} {}".format(os.path.join(dirname, filename), newpath))
             else:
                 newpath = os.path.join(dirname, filename)

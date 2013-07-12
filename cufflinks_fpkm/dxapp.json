@@ -18,7 +18,12 @@
       "optional": false,
       "name": "genes",
       "class": "gtable",
-      "type": "Genes"
+      "type": "Genes",
+      "suggestions": [
+        {"name": "Public Annotations",
+         "project": "project-B406Bq0bQ9jB3GVk65200001",
+         "path": "/"}
+      ]
     },
     {
       "label": "Cufflinks parameters",
