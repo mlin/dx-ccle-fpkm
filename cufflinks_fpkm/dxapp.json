@@ -1,6 +1,6 @@
 {
   "name": "cufflinks_fpkm",
-  "title": "RNA-Seq transcript quantification using Cufflinks",
+  "title": "Cufflinks FPKM",
   "summary": "RNA-Seq expression quantification (FPKM) using Cufflinks",
   "dxapi": "1.0.0",
   "version": "0.0.1",
