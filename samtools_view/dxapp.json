@@ -18,9 +18,9 @@
       "class": "string"
     },
     {
-      "label": "Suffix",
+      "label": "Prefix",
       "optional": true,
-      "name": "suffix",
+      "name": "prefix",
       "class": "string"
     }
   ],

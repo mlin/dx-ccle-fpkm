@@ -24,7 +24,7 @@ import dxpy
 import subprocess
 
 @dxpy.entry_point('main')
-def main(BAM, params, suffix='_view'):
+def main(BAM, params, prefix='view_'):
 
     # The following line(s) initialize your data object inputs on the platform
     # into dxpy.DXDataObject instances that you can start using immediately.
@@ -45,14 +45,14 @@ def main(BAM, params, suffix='_view'):
     # Fill in your application code here.
 
     subprocess.check_call("samtools index input.bam", shell=True)
-    subprocess.check_call("samtools view input.bam %s > %s" % (params, name+suffix), shell=True)
+    subprocess.check_call("samtools view input.bam %s > %s" % (params, prefix+name), shell=True)
 
     # The following line(s) use the Python bindings to upload your file outputs
     # after you have created them on the local file system.  It assumes that you
     # have used the output field name for the filename for each output, but you
     # can change that behavior to suit your needs.
 
-    BAM = dxpy.upload_local_file(name+suffix);
+    BAM = dxpy.upload_local_file(prefix+name);
 
     # The following line fills in some basic dummy output and assumes
     # that you have created variables to represent your output with
