@@ -48,6 +48,7 @@
   ],
   "runSpec": {
     "interpreter": "python2.7",
-    "file": "src/cufflinks_fpkm.py"
+    "file": "src/cufflinks_fpkm.py",
+    "systemRequirements": {"main": {"instanceType":"dx_m2.2xlarge"}}
   }
 }
