@@ -11,6 +11,7 @@ import tempfile
 import urllib
 import xmltodict
 import hashlib
+import multiprocessing
 
 @dxpy.entry_point("main")
 def main(id_or_barcode):
@@ -118,16 +119,19 @@ def ccle_gtdownload(info):
     analysis_id = str(info['analysis_id'])
     expected_files = ccle_expected_files(info)
     print 'Downloading {}, consisting of files: {}'.format(analysis_id,json.dumps(expected_files))
+    t00 = time.time()
     try:
-        sh("gtdownload -c https://cghub.ucsc.edu/software/downloads/cghub_public.key -d {}".format(analysis_id))
+        sh("gtdownload -c https://cghub.ucsc.edu/software/downloads/cghub_public.key --max-children {} -d {}".format(multiprocessing.cpu_count(), analysis_id))
     except:
         raise dxpy.AppError("Failed to download the data from CGHub using GeneTorrent. Check the job log for more details. Note: CGHub has scheduled maintenance windows on Tuesdays and Thursdays from 1:00-5:00 PM Pacific.")
+    t10 = time.time()
 
     # validate the files gtdownload placed in the expected subdirectory
     if not os.path.isdir(analysis_id):
         raise dxpy.AppInternalError("Unexpected: GeneTorrent gtdownload did not create a subdirectory for " + analysis_id)
     print 'Verifying gtdownload products'
     products = []
+    total_file_size = 0
     for dirname, subdirs, filenames in os.walk(analysis_id):
         if len(subdirs) > 0:
             raise dxpy.AppInternalError("Unexpected: GeneTorrent gtdownload created subdirectories " + subdirs)
@@ -141,10 +145,12 @@ def ccle_gtdownload(info):
                 raise dxpy.AppInternalError("GeneTorrent gtdownload produced a file {} but the expected name was {} based on the CCLE index for {}".format(filename, expected_files[md5], analysis_id))
             del expected_files[md5]
             products.append((md5, filepath))
+            total_file_size += os.path.getsize(filepath)
 
     # make sure we got everything
     if len(expected_files) > 0:
         raise dxpy.AppInternalError("GeneTorrent gtdownload did not produce all expected files for {}. Missing: {}".format(analysis_id, expected_files))
+    t20 = time.time()
 
     # upload to platform
     print 'Uploading to platform'
@@ -160,6 +166,9 @@ def ccle_gtdownload(info):
         # add file to the list of output files
         dxfile.close()
         dxfiles.append(dxfile)
+    t30 = time.time()
+
+    print '\t'.join(['performance', str(total_file_size), str(int(round(t10-t00))), str(int(round(t20-t10))), str(int(round(t30-t20)))])
 
     return dxfiles
 
